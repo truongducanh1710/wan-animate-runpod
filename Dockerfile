@@ -43,14 +43,37 @@ RUN pip install --no-cache-dir -r /requirements.txt
 COPY src /src
 COPY workflows /workflows
 
-# Create symlinks to Network Volume models
-# Models will be mounted from Network Volume at /runpod-volume
-RUN mkdir -p /comfyui/models && \
-    ln -s /runpod-volume/models/diffusion_models /comfyui/models/diffusion_models && \
-    ln -s /runpod-volume/models/loras /comfyui/models/loras && \
-    ln -s /runpod-volume/models/text_encoders /comfyui/models/text_encodors && \
-    ln -s /runpod-volume/models/clip_vision /comfyui/models/clip_vision && \
-    ln -s /runpod-volume/models/vae /comfyui/models/vae
+# Create model directories
+RUN mkdir -p /comfyui/models/diffusion_models && \
+    mkdir -p /comfyui/models/loras && \
+    mkdir -p /comfyui/models/text_encoders && \
+    mkdir -p /comfyui/models/clip_vision && \
+    mkdir -p /comfyui/models/vae
+
+# Download models during build
+WORKDIR /comfyui/models
+
+# Download Diffusion Model (18GB)
+RUN wget -q --show-progress -O diffusion_models/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors \
+    https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors
+
+# Download LoRAs
+RUN wget -q --show-progress -O loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors \
+    https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors && \
+    wget -q --show-progress -O loras/WanAnimate_relight_lora_fp16.safetensors \
+    https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Wan22_relight/WanAnimate_relight_lora_fp16.safetensors
+
+# Download Text Encoder (6.3GB)
+RUN wget -q --show-progress -O text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors \
+    https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
+
+# Download CLIP Vision
+RUN wget -q --show-progress -O clip_vision/clip_vision_h.safetensors \
+    https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
+
+# Download VAE
+RUN wget -q --show-progress -O vae/wan_2.1_vae.safetensors \
+    https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
