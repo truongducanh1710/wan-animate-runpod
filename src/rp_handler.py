@@ -84,6 +84,46 @@ def wait_for_completion(prompt_id, timeout=3600):
         
         time.sleep(5)
 
+def download_video_as_base64(video_info):
+    """Download video from ComfyUI output and convert to base64"""
+    try:
+        # Video info format: { "filename": "...", "subfolder": "...", "type": "output" }
+        filename = video_info.get('filename')
+        subfolder = video_info.get('subfolder', '')
+        
+        if not filename:
+            raise Exception("No filename in video info")
+        
+        # Construct file path
+        # ComfyUI saves outputs to /comfyui/output/
+        if subfolder:
+            video_path = f"/comfyui/output/{subfolder}/{filename}"
+        else:
+            video_path = f"/comfyui/output/{filename}"
+        
+        print(f"Reading video from: {video_path}")
+        
+        # Check if file exists
+        if not os.path.exists(video_path):
+            raise Exception(f"Video file not found: {video_path}")
+        
+        # Read video file
+        with open(video_path, 'rb') as f:
+            video_bytes = f.read()
+        
+        # Convert to base64
+        video_base64 = base64.b64encode(video_bytes).decode('utf-8')
+        
+        print(f"✅ Video converted to base64 ({len(video_base64)} chars)")
+        
+        # Return as data URL
+        return f"data:video/mp4;base64,{video_base64}"
+        
+    except Exception as e:
+        print(f"Error downloading video: {e}")
+        raise
+
+
 def handler(job):
     """
     RunPod handler function for Wan Animate 14B
@@ -184,10 +224,10 @@ def handler(job):
         # Wait for completion
         history = wait_for_completion(prompt_id)
         
-        # Extract output video URL
+        # Extract output video
         outputs = history.get('outputs', {})
         
-        # Find SaveVideo node output (node 19)
+        # Find SaveVideo node output (node 19, 243, or 277)
         video_output = None
         for node_id, node_output in outputs.items():
             if 'gifs' in node_output or 'videos' in node_output:
@@ -202,11 +242,35 @@ def handler(job):
                 "outputs": outputs
             }
         
-        return {
-            "status": "success",
-            "prompt_id": prompt_id,
-            "output": video_output
-        }
+        # Get video info
+        videos = video_output.get('videos') or video_output.get('gifs', [])
+        if not videos or len(videos) == 0:
+            return {
+                "status": "error",
+                "message": "No video files in output",
+                "output": video_output
+            }
+        
+        # Download first video and convert to base64
+        video_info = videos[0]
+        print(f"Converting video to base64: {video_info}")
+        
+        try:
+            video_base64 = download_video_as_base64(video_info)
+            
+            return {
+                "status": "success",
+                "prompt_id": prompt_id,
+                "video": video_base64,
+                "message": "Video generated successfully!"
+            }
+        except Exception as e:
+            print(f"Error converting video: {e}")
+            return {
+                "status": "error",
+                "message": f"Video generated but failed to convert: {str(e)}",
+                "video_info": video_info
+            }
         
     except Exception as e:
         print(f"Error in handler: {str(e)}")
