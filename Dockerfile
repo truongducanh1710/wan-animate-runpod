@@ -30,10 +30,11 @@ RUN git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
     cd ComfyUI-KJNodes && \
     pip install --no-cache-dir -r requirements.txt
 
-# 3. SAM2
+# 3. SAM2 (install with error handling)
 RUN git clone https://github.com/kijai/ComfyUI-segment-anything-2.git && \
     cd ComfyUI-segment-anything-2 && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt || \
+    pip install --no-cache-dir sam2 opencv-python-headless
 
 # Install RunPod handler dependencies
 COPY builder/requirements.txt /requirements.txt
